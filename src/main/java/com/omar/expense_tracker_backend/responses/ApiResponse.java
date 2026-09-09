@@ -1,0 +1,54 @@
+package com.omar.expense_tracker_backend.responses;
+
+public class ApiResponse<T> {
+
+    private boolean success;
+    private String message;
+    private T data;
+
+    // 1. الكونستركتر الفارغ (الإجباري لعمل Spring Boot)
+    public ApiResponse() {
+    }
+
+    // 2. تم إصلاح الخطأ المنطقي هنا (this.success = success)
+    public ApiResponse(boolean success, String message, T data) {
+        this.success = success;
+        this.message = message;
+        this.data = data;
+    }
+
+    public ApiResponse(String message, T data) {
+        this.success = true;
+        this.message = message;
+        this.data = data;
+    }
+
+    public ApiResponse(String message) {
+        this.success = false;
+        this.message = message;
+    }
+
+    public boolean isSuccess() {
+        return success;
+    }
+
+    public void setSuccess(boolean success) {
+        this.success = success;
+    }
+
+    public String getMessage() {
+        return message;
+    }
+
+    public void setMessage(String message) {
+        this.message = message;
+    }
+
+    public T getData() {
+        return data;
+    }
+
+    public void setData(T data) {
+        this.data = data;
+    }
+}
