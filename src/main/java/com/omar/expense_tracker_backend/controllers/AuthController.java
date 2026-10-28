@@ -9,7 +9,9 @@ import com.omar.expense_tracker_backend.services.UserService;
 import jakarta.validation.Valid;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.authentication.AuthenticationManager;
+import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.client.RestTemplate;
 
@@ -99,6 +101,23 @@ public class AuthController {
         } catch (Exception e) {
             throw new IllegalArgumentException("فشل التحقق من حساب جوجل، تأكد من صلاحية الرمز");
         }
+    }
+
+    // مسار التجديد الانزلاقي للتوكن (Sliding Session Refresh)
+    @PostMapping("/refresh")
+    public ResponseEntity<ApiResponse<AuthResponse>> refreshToken(Authentication authentication) {
+        if (authentication == null || !authentication.isAuthenticated()) {
+            throw new BadCredentialsException("التوكن غير صالح أو منتهي الصلاحية");
+        }
+
+        User user = userService.findByEmail(authentication.getName())
+                .orElseThrow(() -> new BadCredentialsException("المستخدم غير موجود"));
+
+        String newToken = jwtUtil.generateToken(new CustomUserDetails(user));
+        UserDTO userDTO = new UserDTO(user.getId(), user.getUsername(), user.getEmail(), user.getAuthProvider());
+        AuthResponse authResponse = new AuthResponse(newToken, userDTO);
+
+        return ResponseEntity.ok(new ApiResponse<>(true, "تم تجديد الجلسة بنجاح", authResponse));
     }
 
     @PostMapping("/forgot-password")
