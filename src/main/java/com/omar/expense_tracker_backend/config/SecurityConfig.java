@@ -25,22 +25,15 @@ public class SecurityConfig {
     @Bean
     public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
         http
-                // 1. إيقاف حماية CSRF (لأننا نستخدم التوكن ولا نستخدم المتصفحات)
                 .csrf(csrf -> csrf.disable())
-                // 2. قوانين المرور والمسارات
                 .authorizeHttpRequests(auth -> auth
-                        .requestMatchers("/api/auth/**").permitAll() // مسار التسجيل والدخول مفتوح للجميع
-                        .anyRequest().authenticated()                // أي مسار آخر (محافظ، معاملات) مغلق ويحتاج توكن
+                        .requestMatchers("/api/auth/**").permitAll()
+                        .anyRequest().authenticated()
                 )
-                // 3. إدارة الجلسات (نجعلها Stateless)
                 .sessionManagement(session -> session
                         .sessionCreationPolicy(SessionCreationPolicy.STATELESS)
                 )
-
-                // 4. دمج موظف المطابقة الذي صنعناه
                 .authenticationProvider(authenticationProvider)
-
-                // 5. وضع حارسنا (الـ Filter) أمام البوابة الرئيسية
                 .addFilterBefore(jwtAuthFilter, UsernamePasswordAuthenticationFilter.class);
 
         return http.build();

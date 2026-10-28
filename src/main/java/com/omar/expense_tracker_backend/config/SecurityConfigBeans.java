@@ -1,6 +1,5 @@
 package com.omar.expense_tracker_backend.config;
 
-// الاستيرادات الصحيحة 100% من قلب مكتبة Spring Security
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.security.authentication.AuthenticationManager;
@@ -26,7 +25,6 @@ public class SecurityConfigBeans {
         return authProvider;
     }
 
-    // قمنا بإزالة throws Exception استجابة لتحذير المحرر الذكي
     @Bean
     public AuthenticationManager authenticationManager(AuthenticationConfiguration config) {
         try {

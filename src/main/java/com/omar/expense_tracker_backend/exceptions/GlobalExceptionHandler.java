@@ -1,38 +1,50 @@
 package com.omar.expense_tracker_backend.exceptions;
 
 import com.omar.expense_tracker_backend.responses.ApiResponse;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.authentication.BadCredentialsException;
+import org.springframework.security.core.userdetails.UsernameNotFoundException;
+import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 
 @RestControllerAdvice
 public class GlobalExceptionHandler {
 
-    // 1. صائد الأخطاء الخاصة بالمدخلات الخاطئة (400 Bad Request)
+    private static final Logger log = LoggerFactory.getLogger(GlobalExceptionHandler.class);
+
     @ExceptionHandler(IllegalArgumentException.class)
     public ResponseEntity<ApiResponse<Object>> handleIllegalArgumentException(IllegalArgumentException ex) {
-        String message = ex.getMessage();
-        ApiResponse<Object> response = new ApiResponse<>(message);
-        return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(response);
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(new ApiResponse<>(ex.getMessage()));
     }
 
-    // 2. صائد الأخطاء الخاصة بعدم العثور على الموارد (404 Not Found)
     @ExceptionHandler(ResourceNotFoundException.class)
     public ResponseEntity<ApiResponse<Object>> handleResourceNotFoundException(ResourceNotFoundException ex) {
-        String message = ex.getMessage();
-        ApiResponse<Object> response = new ApiResponse<>(message);
-        return ResponseEntity.status(HttpStatus.NOT_FOUND).body(response);
+        return ResponseEntity.status(HttpStatus.NOT_FOUND).body(new ApiResponse<>(ex.getMessage()));
     }
 
-    // 3. صائد الأخطاء العشوائية وغير المتوقعة (500 Internal Server Error)
+    @ExceptionHandler({BadCredentialsException.class, UsernameNotFoundException.class})
+    public ResponseEntity<ApiResponse<Object>> handleAuthenticationException(Exception ex) {
+        return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+                .body(new ApiResponse<>("البريد الإلكتروني أو كلمة المرور غير صحيحة"));
+    }
+
+    @ExceptionHandler(MethodArgumentNotValidException.class)
+    public ResponseEntity<ApiResponse<Object>> handleValidationException(MethodArgumentNotValidException ex) {
+        String message = ex.getBindingResult().getFieldErrors().stream()
+                .map(error -> error.getDefaultMessage())
+                .findFirst()
+                .orElse("البيانات المدخلة غير صحيحة");
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(new ApiResponse<>(message));
+    }
+
     @ExceptionHandler(Exception.class)
     public ResponseEntity<ApiResponse<Object>> handleGlobalException(Exception ex) {
-        String message = "حدث خطأ داخلي في الخادم، يرجى المحاولة لاحقاً.";
-        // يمكنك طباعة رسالة الخطأ الحقيقية في الـ Console لمعرفة السبب كمهندس
-        System.out.println("Critical Error: " + ex.getMessage());
-
-        ApiResponse<Object> response = new ApiResponse<>(message);
-        return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(response);
+        log.error("Critical Server Error: ", ex);
+        return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                .body(new ApiResponse<>("حدث خطأ داخلي في الخادم، يرجى المحاولة لاحقاً."));
     }
 }

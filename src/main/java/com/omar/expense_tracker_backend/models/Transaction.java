@@ -7,13 +7,17 @@ import org.hibernate.annotations.SQLRestriction;
 import java.time.LocalDateTime;
 
 @Entity
-@Table(name = "transactions")
+@Table(name = "transactions", indexes = {
+        @Index(name = "idx_tx_wallet_income", columnList = "wallet_id, is_income"),
+        @Index(name = "idx_tx_wallet_date", columnList = "wallet_id, transaction_date DESC"),
+        @Index(name = "idx_tx_updated_at", columnList = "updated_at")
+})
 @SQLDelete(sql = "UPDATE transactions SET is_deleted = true WHERE id=?")
 @SQLRestriction("is_deleted = false")
 public class Transaction {
 
     @Id
-    private String id; // يبقى هكذا لأن فلاتر يرسل المعرف
+    private String id;
 
     @Column(nullable = false)
     private Double amount;
@@ -45,7 +49,6 @@ public class Transaction {
 
     public Transaction() {}
 
-    // --------- دوال التحكم اليدوي بالوقت الذكية ---------
     @PrePersist
     protected void onCreate() {
         if (this.createdAt == null) this.createdAt = LocalDateTime.now();
@@ -56,24 +59,25 @@ public class Transaction {
     protected void onUpdate() {
         this.updatedAt = LocalDateTime.now();
     }
-    public Boolean getDeleted() { return isDeleted; }
-    public void setDeleted(Boolean deleted) { isDeleted = deleted; }
+
     public String getId() { return id; }
     public void setId(String id) { this.id = id; }
     public Double getAmount() { return amount; }
     public void setAmount(Double amount) { this.amount = amount; }
-    public Wallet getWallet() { return wallet; }
-    public void setWallet(Wallet wallet) { this.wallet = wallet; }
-    public LocalDateTime getTransactionDate() { return transactionDate; }
-    public void setTransactionDate(LocalDateTime transactionDate) { this.transactionDate = transactionDate; }
     public String getCategory() { return category; }
     public void setCategory(String category) { this.category = category; }
     public String getNote() { return note; }
     public void setNote(String note) { this.note = note; }
     public Boolean getIncome() { return isIncome; }
     public void setIncome(Boolean income) { isIncome = income; }
+    public LocalDateTime getTransactionDate() { return transactionDate; }
+    public void setTransactionDate(LocalDateTime transactionDate) { this.transactionDate = transactionDate; }
+    public Wallet getWallet() { return wallet; }
+    public void setWallet(Wallet wallet) { this.wallet = wallet; }
     public LocalDateTime getCreatedAt() { return createdAt; }
     public void setCreatedAt(LocalDateTime createdAt) { this.createdAt = createdAt; }
     public LocalDateTime getUpdatedAt() { return updatedAt; }
     public void setUpdatedAt(LocalDateTime updatedAt) { this.updatedAt = updatedAt; }
+    public Boolean getDeleted() { return isDeleted; }
+    public void setDeleted(Boolean deleted) { isDeleted = deleted; }
 }

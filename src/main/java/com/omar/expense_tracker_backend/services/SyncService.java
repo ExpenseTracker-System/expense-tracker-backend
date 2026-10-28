@@ -31,108 +31,117 @@ public class SyncService {
         this.userRepository = userRepository;
     }
 
-    // لافتة الأمان: المزامنة إما تنجح بالكامل أو تفشل بالكامل ولا تشوه البيانات
     @Transactional
     public SyncResponse synchronize(String userId, SyncRequest request) {
-        // 1. التأكد من وجود المستخدم
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new RuntimeException("المستخدم غير موجود"));
 
-        // 2. تحديد نقطة البداية الزمنية
         LocalDateTime clientLastSync = request.getLastSyncTime();
         if (clientLastSync == null) {
-            // إذا كان الهاتف جديداً، نعتبر أن آخر مزامنة كانت في الماضي السحيق لنجلب له كل شيء
             clientLastSync = LocalDateTime.of(2000, 1, 1, 0, 0);
         }
 
-        // القسم الأول: الرفع (Upstream) - من الهاتف إلى السيرفر
+        // 1. جلب التعديلات الموجودة في السيرفر قبل رفع بيانات الهاتف لمنع إعادة إرسال ما رفعه الهاتف للتو
+        List<Wallet> serverWallets = walletRepository.findWalletsForSync(userId, clientLastSync);
+        List<Transaction> serverTransactions = transactionRepository.findTransactionsForSync(userId, clientLastSync);
 
-        // أ. معالجة المحافظ القادمة من الهاتف
+        // 2. القسم الأول: الرفع (Upstream) - معالجة المحافظ القادمة من الهاتف
         if (request.getWallets() != null) {
             for (WalletDTO wDto : request.getWallets()) {
-                Optional<Wallet> existingWallet = walletRepository.findById(wDto.getId());
+                if (wDto.getId() == null || wDto.getId().isBlank()) continue;
 
-                if (existingWallet.isPresent()) {
-                    // خوارزمية (الأحدث يفوز - Last Write Wins)
-                    if (wDto.getUpdatedAt().isAfter(existingWallet.get().getUpdatedAt())) {
-                        Wallet w = existingWallet.get();
+                LocalDateTime incomingUpdatedAt = wDto.getUpdatedAt() != null ? wDto.getUpdatedAt() : LocalDateTime.now();
+                Optional<Wallet> existingWalletOpt = walletRepository.findByIdIncludingDeleted(wDto.getId());
+
+                if (existingWalletOpt.isPresent()) {
+                    Wallet w = existingWalletOpt.get();
+                    if (!w.getUser().getId().equals(userId)) {
+                        continue;
+                    }
+                    if (w.getUpdatedAt() == null || incomingUpdatedAt.isAfter(w.getUpdatedAt())) {
                         w.setName(wDto.getName());
-                        w.setDeleted(wDto.getDeleted());
+                        w.setDeleted(wDto.getDeleted() != null ? wDto.getDeleted() : false);
+                        w.setUpdatedAt(LocalDateTime.now());
                         walletRepository.save(w);
                     }
                 } else {
-                    // إذا لم تكن موجودة، فهذه محفظة جديدة تم إنشاؤها بدون إنترنت
                     Wallet w = new Wallet();
                     w.setId(wDto.getId());
                     w.setName(wDto.getName());
                     w.setUser(user);
                     w.setDeleted(wDto.getDeleted() != null ? wDto.getDeleted() : false);
+                    w.setCreatedAt(wDto.getCreatedAt() != null ? wDto.getCreatedAt() : LocalDateTime.now());
+                    w.setUpdatedAt(LocalDateTime.now());
                     walletRepository.save(w);
                 }
             }
         }
 
-        // ب. معالجة المعاملات القادمة من الهاتف
+        // 3. معالجة المعاملات القادمة من الهاتف
         if (request.getTransactions() != null) {
             for (TransactionDTO tDto : request.getTransactions()) {
-                Optional<Transaction> existingTx = transactionRepository.findById(tDto.getId());
+                if (tDto.getId() == null || tDto.getId().isBlank()) continue;
 
-                if (existingTx.isPresent()) {
-                    // خوارزمية (الأحدث يفوز)
-                    if (tDto.getUpdatedAt().isAfter(existingTx.get().getUpdatedAt())) {
-                        Transaction t = existingTx.get();
+                LocalDateTime incomingUpdatedAt = tDto.getUpdatedAt() != null ? tDto.getUpdatedAt() : LocalDateTime.now();
+                Optional<Transaction> existingTxOpt = transactionRepository.findByIdIncludingDeleted(tDto.getId());
+
+                if (existingTxOpt.isPresent()) {
+                    Transaction t = existingTxOpt.get();
+                    if (!t.getWallet().getUser().getId().equals(userId)) {
+                        continue;
+                    }
+                    if (t.getUpdatedAt() == null || incomingUpdatedAt.isAfter(t.getUpdatedAt())) {
                         t.setAmount(tDto.getAmount());
                         t.setCategory(tDto.getCategory());
                         t.setNote(tDto.getNote());
                         t.setIncome(tDto.getIncome());
-                        t.setTransactionDate(tDto.getTransactionsDate());
-                        t.setDeleted(tDto.getDeleted());
+                        t.setTransactionDate(tDto.getTransactionDate());
+                        t.setDeleted(tDto.getDeleted() != null ? tDto.getDeleted() : false);
+                        t.setUpdatedAt(LocalDateTime.now());
                         transactionRepository.save(t);
                     }
                 } else {
-                    // معاملة جديدة
-                    Optional<Wallet> wallet = walletRepository.findById(tDto.getWalletId());
-                    if (wallet.isPresent()) {
+                    Optional<Wallet> walletOpt = walletRepository.findByIdIncludingDeleted(tDto.getWalletId());
+                    if (walletOpt.isPresent() && walletOpt.get().getUser().getId().equals(userId)) {
                         Transaction t = new Transaction();
                         t.setId(tDto.getId());
                         t.setAmount(tDto.getAmount());
                         t.setCategory(tDto.getCategory());
                         t.setNote(tDto.getNote());
                         t.setIncome(tDto.getIncome());
-                        t.setTransactionDate(tDto.getTransactionsDate());
-                        t.setWallet(wallet.get());
+                        t.setTransactionDate(tDto.getTransactionDate());
+                        t.setWallet(walletOpt.get());
                         t.setDeleted(tDto.getDeleted() != null ? tDto.getDeleted() : false);
+                        t.setCreatedAt(tDto.getCreatedAt() != null ? tDto.getCreatedAt() : LocalDateTime.now());
+                        t.setUpdatedAt(LocalDateTime.now());
                         transactionRepository.save(t);
                     }
                 }
             }
         }
 
-        // القسم الثاني: التحميل (Downstream) - من السيرفر إلى الهاتف
-
-        // استخدام دوال (Native Queries) التي تخترق الحذف الناعم لجلب التعديلات الجديدة
-        List<Wallet> serverWallets = walletRepository.findWalletsForSync(userId, clientLastSync);
-        List<Transaction> serverTransactions = transactionRepository.findTransactionsForSync(userId, clientLastSync);
-
-        // تحويل كائنات السيرفر إلى قوالب DTO لفلاتر
+        // 4. القسم الثاني: التحميل (Downstream) - تحويل التعديلات لإرسالها إلى الهاتف
         List<WalletDTO> resWallets = serverWallets.stream().map(w -> {
             WalletDTO dto = new WalletDTO(w.getId(), w.getName(), w.getUser().getId());
             dto.setDeleted(w.getDeleted());
+            dto.setCreatedAt(w.getCreatedAt());
             dto.setUpdatedAt(w.getUpdatedAt());
             return dto;
         }).collect(Collectors.toList());
 
         List<TransactionDTO> resTransactions = serverTransactions.stream().map(t -> {
-            TransactionDTO dto = new TransactionDTO(t.getId(), t.getAmount(), t.getCategory(), t.getNote(), t.getIncome(), t.getTransactionDate(), t.getWallet().getId());
+            TransactionDTO dto = new TransactionDTO(
+                    t.getId(), t.getAmount(), t.getCategory(), t.getNote(),
+                    t.getIncome(), t.getTransactionDate(), t.getWallet().getId()
+            );
             dto.setDeleted(t.getDeleted());
+            dto.setCreatedAt(t.getCreatedAt());
             dto.setUpdatedAt(t.getUpdatedAt());
             return dto;
         }).collect(Collectors.toList());
 
-        // القسم الثالث: إغلاق الحقيبة وإرسالها
-
         SyncResponse response = new SyncResponse();
-        response.setSyncTime(LocalDateTime.now()); // وقت السيرفر الحالي
+        response.setSyncTime(LocalDateTime.now());
         response.setWallets(resWallets);
         response.setTransactions(resTransactions);
 

@@ -9,13 +9,15 @@ import java.util.ArrayList;
 import java.util.List;
 
 @Entity
-@Table(name = "users")
+@Table(name = "users", indexes = {
+        @Index(name = "idx_users_email", columnList = "email")
+})
 @SQLDelete(sql = "UPDATE users SET is_deleted = true WHERE id=?")
 @SQLRestriction("is_deleted = false")
 public class User {
 
     @Id
-    @GeneratedValue(strategy = GenerationType.UUID) // تمت الإضافة هنا ليقوم السيرفر بتوليد النص
+    @GeneratedValue(strategy = GenerationType.UUID)
     private String id;
 
     @Column(nullable = false)
@@ -30,6 +32,12 @@ public class User {
     @Column(nullable = false)
     private String authProvider;
 
+    @Column(nullable = true)
+    private String resetOtp;
+
+    @Column(nullable = true)
+    private LocalDateTime resetOtpExpiry;
+
     @OneToMany(mappedBy = "user", cascade = CascadeType.ALL, orphanRemoval = true)
     private List<Wallet> wallets = new ArrayList<>();
 
@@ -42,12 +50,12 @@ public class User {
     @Column(nullable = false)
     private LocalDateTime updatedAt;
 
-    public User(){}
+    public User() {}
 
     @PrePersist
     protected void onCreate() {
-        this.createdAt = LocalDateTime.now();
-        this.updatedAt = LocalDateTime.now();
+        if (this.createdAt == null) this.createdAt = LocalDateTime.now();
+        if (this.updatedAt == null) this.updatedAt = LocalDateTime.now();
     }
 
     @PreUpdate
@@ -55,22 +63,26 @@ public class User {
         this.updatedAt = LocalDateTime.now();
     }
 
-    public LocalDateTime getUpdatedAt() { return updatedAt; }
-    public void setUpdatedAt(LocalDateTime updatedAt) { this.updatedAt = updatedAt; }
-    public LocalDateTime getCreatedAt() { return createdAt; }
-    public void setCreatedAt(LocalDateTime createdAt) { this.createdAt = createdAt; }
-    public Boolean getDeleted() { return isDeleted; }
-    public void setDeleted(Boolean deleted) { isDeleted = deleted; }
-    public List<Wallet> getWallets() { return wallets; }
-    public void setWallets(List<Wallet> wallets) { this.wallets = wallets; }
     public String getId() { return id; }
     public void setId(String id) { this.id = id; }
+    public String getUsername() { return username; }
+    public void setUsername(String username) { this.username = username; }
     public String getEmail() { return email; }
     public void setEmail(String email) { this.email = email; }
     public String getPassword() { return password; }
     public void setPassword(String password) { this.password = password; }
     public String getAuthProvider() { return authProvider; }
     public void setAuthProvider(String authProvider) { this.authProvider = authProvider; }
-    public String getUsername() { return username; }
-    public void setUsername(String username) { this.username = username; }
+    public String getResetOtp() { return resetOtp; }
+    public void setResetOtp(String resetOtp) { this.resetOtp = resetOtp; }
+    public LocalDateTime getResetOtpExpiry() { return resetOtpExpiry; }
+    public void setResetOtpExpiry(LocalDateTime resetOtpExpiry) { this.resetOtpExpiry = resetOtpExpiry; }
+    public List<Wallet> getWallets() { return wallets; }
+    public void setWallets(List<Wallet> wallets) { this.wallets = wallets; }
+    public Boolean getDeleted() { return isDeleted; }
+    public void setDeleted(Boolean deleted) { isDeleted = deleted; }
+    public LocalDateTime getCreatedAt() { return createdAt; }
+    public void setCreatedAt(LocalDateTime createdAt) { this.createdAt = createdAt; }
+    public LocalDateTime getUpdatedAt() { return updatedAt; }
+    public void setUpdatedAt(LocalDateTime updatedAt) { this.updatedAt = updatedAt; }
 }
