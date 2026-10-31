@@ -31,6 +31,13 @@ public class AuthController {
         this.userService = userService;
     }
 
+    // 1. دالة النبض الخفيفة لإبقاء سيرفر Render مستيقظاً 24 ساعة (Keep-Alive)
+    @GetMapping("/ping")
+    public ResponseEntity<String> ping() {
+        return ResponseEntity.ok("pong");
+    }
+
+    // 2. تسجيل الدخول
     @PostMapping("/login")
     public ResponseEntity<ApiResponse<AuthResponse>> authenticate(@Valid @RequestBody LoginRequest loginRequest) {
         String email = loginRequest.getEmail().trim().toLowerCase();
@@ -55,6 +62,7 @@ public class AuthController {
         return ResponseEntity.ok(new ApiResponse<>(true, "تم تسجيل الدخول بنجاح", authResponse));
     }
 
+    // 3. إنشاء حساب جديد
     @PostMapping("/register")
     public ResponseEntity<ApiResponse<AuthResponse>> register(@Valid @RequestBody RegisterRequest request) {
         User user = new User();
@@ -78,6 +86,7 @@ public class AuthController {
         return ResponseEntity.ok(new ApiResponse<>(true, "تم إنشاء الحساب بنجاح", authResponse));
     }
 
+    // 4. تسجيل الدخول عبر Google
     @PostMapping("/google")
     public ResponseEntity<ApiResponse<AuthResponse>> googleLogin(@Valid @RequestBody GoogleLoginRequest request) {
         try {
@@ -103,7 +112,7 @@ public class AuthController {
         }
     }
 
-    // مسار التجديد الانزلاقي للتوكن (Sliding Session Refresh)
+    // 5. التجديد الانزلاقي للتوكن
     @PostMapping("/refresh")
     public ResponseEntity<ApiResponse<AuthResponse>> refreshToken(Authentication authentication) {
         if (authentication == null || !authentication.isAuthenticated()) {
@@ -120,12 +129,14 @@ public class AuthController {
         return ResponseEntity.ok(new ApiResponse<>(true, "تم تجديد الجلسة بنجاح", authResponse));
     }
 
+    // 6. طلب رمز استعادة كلمة المرور
     @PostMapping("/forgot-password")
     public ResponseEntity<ApiResponse<Object>> forgotPassword(@RequestParam String email) {
         userService.generatePasswordResetOtp(email);
         return ResponseEntity.ok(new ApiResponse<>(true, "تم إرسال رمز التحقق لاستعادة كلمة المرور", null));
     }
 
+    // 7. تعيين كلمة المرور الجديدة
     @PostMapping("/reset-password")
     public ResponseEntity<ApiResponse<Object>> resetPassword(@Valid @RequestBody PasswordResetRequest request) {
         userService.resetPassword(request.getEmail(), request.getOtpCode(), request.getNewPassword());
