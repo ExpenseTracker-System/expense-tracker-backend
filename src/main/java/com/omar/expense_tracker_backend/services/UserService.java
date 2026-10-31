@@ -21,6 +21,12 @@ public class UserService implements UserDetailsService {
 
     private static final Logger log = LoggerFactory.getLogger(UserService.class);
 
+    @org.springframework.beans.factory.annotation.Value("${brevo.api.key:}")
+    private String brevoApiKey;
+
+    @org.springframework.beans.factory.annotation.Value("${brevo.sender.email:}")
+    private String senderEmail;
+
     private final UserRepository userRepository;
     private final PasswordEncoder passwordEncoder;
 
@@ -86,8 +92,39 @@ public class UserService implements UserDetailsService {
         user.setResetOtpExpiry(LocalDateTime.now().plusMinutes(15));
         userRepository.save(user);
 
-        // يطبع رمز التحقق في الـ Console أثناء التطوير والاختبار
         log.info("🔑 [Password Reset OTP] For {}: {}", user.getEmail(), otp);
+
+        // إرسال الإيميل الفعلي للمستخدم عبر HTTP API (يعمل على Render Free Tier)
+        if (brevoApiKey != null && !brevoApiKey.isBlank()) {
+            try {
+                org.springframework.web.client.RestTemplate restTemplate = new org.springframework.web.client.RestTemplate();
+                org.springframework.http.HttpHeaders headers = new org.springframework.http.HttpHeaders();
+                headers.set("api-key", brevoApiKey);
+                headers.set("Content-Type", "application/json");
+
+                String htmlContent = "<div dir='rtl' style='font-family: Arial, sans-serif; padding: 20px;'>"
+                        + "<h2>تطبيق محفظتي الذكية</h2>"
+                        + "<p>مرحباً <b>" + user.getUsername() + "</b>،</p>"
+                        + "<p>رمز التحقق الخاص بك لاستعادة كلمة المرور هو:</p>"
+                        + "<h1 style='color: #1565C0; letter-spacing: 4px;'>" + otp + "</h1>"
+                        + "<p>هذا الرمز صالح لمدة 15 دقيقة.</p>"
+                        + "</div>";
+
+                java.util.Map<String, Object> body = java.util.Map.of(
+                        "sender", java.util.Map.of("name", "محفظتي الذكية", "email", senderEmail),
+                        "to", java.util.List.of(java.util.Map.of("email", user.getEmail())),
+                        "subject", "رمز استعادة كلمة المرور - محفظتي الذكية",
+                        "htmlContent", htmlContent
+                );
+
+                org.springframework.http.HttpEntity<java.util.Map<String, Object>> entity =
+                        new org.springframework.http.HttpEntity<>(body, headers);
+                restTemplate.postForEntity("https://api.brevo.com/v3/smtp/email", entity, String.class);
+            } catch (Exception e) {
+                log.error("Failed to send OTP email: ", e);
+                throw new IllegalArgumentException("تعذر إرسال البريد الإلكتروني حالياً، يرجى المحاولة لاحقاً");
+            }
+        }
         return otp;
     }
 
