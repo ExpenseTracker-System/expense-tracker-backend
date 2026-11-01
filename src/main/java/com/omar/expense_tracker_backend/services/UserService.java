@@ -5,6 +5,7 @@ import com.omar.expense_tracker_backend.repositories.UserRepository;
 import com.omar.expense_tracker_backend.security.CustomUserDetails;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.security.core.userdetails.UsernameNotFoundException;
@@ -13,6 +14,8 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
+import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -21,10 +24,10 @@ public class UserService implements UserDetailsService {
 
     private static final Logger log = LoggerFactory.getLogger(UserService.class);
 
-    @org.springframework.beans.factory.annotation.Value("${brevo.api.key:}")
+    @Value("${brevo.api.key:}")
     private String brevoApiKey;
 
-    @org.springframework.beans.factory.annotation.Value("${brevo.sender.email:}")
+    @Value("${brevo.sender.email:}")
     private String senderEmail;
 
     private final UserRepository userRepository;
@@ -94,7 +97,6 @@ public class UserService implements UserDetailsService {
 
         log.info("🔑 [Password Reset OTP] For {}: {}", user.getEmail(), otp);
 
-        // إرسال الإيميل الفعلي للمستخدم عبر HTTP API (يعمل على Render Free Tier)
         if (brevoApiKey != null && !brevoApiKey.isBlank()) {
             try {
                 org.springframework.web.client.RestTemplate restTemplate = new org.springframework.web.client.RestTemplate();
@@ -107,22 +109,21 @@ public class UserService implements UserDetailsService {
                         + "<p>مرحباً <b>" + user.getUsername() + "</b>،</p>"
                         + "<p>رمز التحقق الخاص بك لاستعادة كلمة المرور هو:</p>"
                         + "<h1 style='color: #1565C0; letter-spacing: 4px;'>" + otp + "</h1>"
-                        + "<p>هذا الرمز صالح لمدة 15 دقيقة.</p>"
                         + "</div>";
 
-                java.util.Map<String, Object> body = java.util.Map.of(
-                        "sender", java.util.Map.of("name", "محفظتي الذكية", "email", senderEmail),
-                        "to", java.util.List.of(java.util.Map.of("email", user.getEmail())),
+                Map<String, Object> body = Map.of(
+                        "sender", Map.of("name", "محفظتي الذكية", "email", senderEmail),
+                        "to", List.of(Map.of("email", user.getEmail())),
                         "subject", "رمز استعادة كلمة المرور - محفظتي الذكية",
                         "htmlContent", htmlContent
                 );
 
-                org.springframework.http.HttpEntity<java.util.Map<String, Object>> entity =
+                org.springframework.http.HttpEntity> entity =
                         new org.springframework.http.HttpEntity<>(body, headers);
                 restTemplate.postForEntity("https://api.brevo.com/v3/smtp/email", entity, String.class);
             } catch (Exception e) {
-                log.error("Failed to send OTP email: ", e);
-                throw new IllegalArgumentException("تعذر إرسال البريد الإلكتروني حالياً، يرجى المحاولة لاحقاً");
+                // لا نوقف العملية إذا فشل الإيميل، بل نرجع الرمز للتطبيق مباشرة
+                log.warn("Brevo email skipped, returning OTP directly to app: {}", e.getMessage());
             }
         }
         return otp;

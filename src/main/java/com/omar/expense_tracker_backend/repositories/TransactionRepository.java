@@ -20,6 +20,31 @@ public interface TransactionRepository extends JpaRepository<Transaction, String
     @Query(value = "SELECT * FROM transactions WHERE id = :id", nativeQuery = true)
     Optional<Transaction> findByIdIncludingDeleted(@Param("id") String id);
 
+    @Modifying
+    @Query(value = "INSERT INTO transactions (id, amount, category, note, is_income, transaction_date, wallet_id, is_deleted, created_at, updated_at) " +
+            "VALUES (:id, :amount, :category, :note, :isIncome, :transactionDate, :walletId, :isDeleted, :createdAt, :updatedAt) " +
+            "ON CONFLICT (id) DO UPDATE SET " +
+            "amount = EXCLUDED.amount, " +
+            "category = EXCLUDED.category, " +
+            "note = EXCLUDED.note, " +
+            "is_income = EXCLUDED.is_income, " +
+            "transaction_date = EXCLUDED.transaction_date, " +
+            "wallet_id = EXCLUDED.wallet_id, " +
+            "is_deleted = EXCLUDED.is_deleted, " +
+            "updated_at = EXCLUDED.updated_at", nativeQuery = true)
+    void upsertTransaction(
+            @Param("id") String id,
+            @Param("amount") Double amount,
+            @Param("category") String category,
+            @Param("note") String note,
+            @Param("isIncome") boolean isIncome,
+            @Param("transactionDate") LocalDateTime transactionDate,
+            @Param("walletId") String walletId,
+            @Param("isDeleted") boolean isDeleted,
+            @Param("createdAt") LocalDateTime createdAt,
+            @Param("updatedAt") LocalDateTime updatedAt
+    );
+
     @Query("SELECT COALESCE(SUM(t.amount), 0.0) FROM Transaction t WHERE t.wallet.id = :walletId AND t.isIncome = :isIncome")
     Double calculateTotalByWalletAndType(@Param("walletId") String walletId, @Param("isIncome") Boolean isIncome);
 

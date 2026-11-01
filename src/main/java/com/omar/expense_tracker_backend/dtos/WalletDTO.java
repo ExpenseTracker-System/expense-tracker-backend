@@ -1,11 +1,13 @@
 package com.omar.expense_tracker_backend.dtos;
 
 import com.fasterxml.jackson.annotation.JsonAlias;
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import jakarta.validation.constraints.NotBlank;
 
 import java.time.LocalDateTime;
 
+@JsonIgnoreProperties(ignoreUnknown = true)
 public class WalletDTO {
     private String id;
 
@@ -35,8 +37,11 @@ public class WalletDTO {
     public void setName(String name) { this.name = name; }
     public String getUserId() { return userId; }
     public void setUserId(String userId) { this.userId = userId; }
+
+    @JsonProperty("isDeleted")
     public Boolean getDeleted() { return isDeleted; }
     public void setDeleted(Boolean deleted) { this.isDeleted = deleted; }
+
     public LocalDateTime getCreatedAt() { return createdAt; }
     public void setCreatedAt(LocalDateTime createdAt) { this.createdAt = createdAt; }
     public LocalDateTime getUpdatedAt() { return updatedAt; }
