@@ -114,11 +114,11 @@ public class UserService implements UserDetailsService {
                 Map<String, Object> body = Map.of(
                         "sender", Map.of("name", "محفظتي الذكية", "email", senderEmail),
                         "to", List.of(Map.of("email", user.getEmail())),
-                        "subject", "رمز استعادة كلمة المرور - محفظتي الذكية",
+                        "subject", "رمز استعادة كلمة المرور محفظتي الذكية",
                         "htmlContent", htmlContent
                 );
 
-                org.springframework.http.HttpEntity> entity =
+                org.springframework.http.HttpEntity < Map < String , Object > > entity =
                         new org.springframework.http.HttpEntity<>(body, headers);
                 restTemplate.postForEntity("https://api.brevo.com/v3/smtp/email", entity, String.class);
             } catch (Exception e) {
