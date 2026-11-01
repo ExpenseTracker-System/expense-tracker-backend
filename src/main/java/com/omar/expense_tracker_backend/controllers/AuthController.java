@@ -125,8 +125,8 @@ public class AuthController {
 
     @PostMapping("/forgot-password")
     public ResponseEntity<ApiResponse<String>> forgotPassword(@RequestParam String email) {
-        String otp = userService.generatePasswordResetOtp(email);
-        return ResponseEntity.ok(new ApiResponse<>(true, "رمز التحقق الخاص بك هو: " + otp, otp));
+        userService.generatePasswordResetOtp(email);
+        return ResponseEntity.ok(new ApiResponse<>(true, "تم إرسال رمز التحقق إلى بريدك الإلكتروني بنجاح", "SENT"));
     }
 
     @PostMapping("/reset-password")

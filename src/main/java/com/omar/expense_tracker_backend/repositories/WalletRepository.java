@@ -20,15 +20,17 @@ public interface WalletRepository extends JpaRepository<Wallet, String> {
     Optional<Wallet> findByIdIncludingDeleted(@Param("id") String id);
 
     @Modifying
-    @Query(value = "INSERT INTO wallets (id, name, user_id, is_deleted, created_at, updated_at) " +
-            "VALUES (:id, :name, :userId, :isDeleted, :createdAt, :updatedAt) " +
+    @Query(value = "INSERT INTO wallets (id, name, currency, user_id, is_deleted, created_at, updated_at) " +
+            "VALUES (:id, :name, :currency, :userId, :isDeleted, :createdAt, :updatedAt) " +
             "ON CONFLICT (id) DO UPDATE SET " +
             "name = EXCLUDED.name, " +
+            "currency = EXCLUDED.currency, " +
             "is_deleted = EXCLUDED.is_deleted, " +
             "updated_at = EXCLUDED.updated_at", nativeQuery = true)
     void upsertWallet(
             @Param("id") String id,
             @Param("name") String name,
+            @Param("currency") String currency,
             @Param("userId") String userId,
             @Param("isDeleted") boolean isDeleted,
             @Param("createdAt") LocalDateTime createdAt,

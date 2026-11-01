@@ -48,7 +48,7 @@ public class SyncService {
         LocalDateTime now = LocalDateTime.now();
         Map<String, String> walletIdMapping = new HashMap<>();
 
-        // 1. حفظ وتحديث المحافظ القادمة من الهاتف مباشرة في PostgreSQL
+        // 1. حفظ وتحديث المحافظ القادمة من الهاتف (مع عملة كل محفظة)
         if (request.getWallets() != null) {
             for (WalletDTO wDto : request.getWallets()) {
                 if (wDto.getId() == null || wDto.getId().isBlank()) continue;
@@ -56,7 +56,6 @@ public class SyncService {
                 String targetWalletId = wDto.getId();
                 Optional<Wallet> existingWalletOpt = walletRepository.findByIdIncludingDeleted(targetWalletId);
 
-                // إذا كان المعرف مستخدماً لحساب آخر على نفس الهاتف، نولد معرفاً خاصاً بهذا المستخدم
                 if (existingWalletOpt.isPresent() && !existingWalletOpt.get().getUser().getId().equals(userId)) {
                     targetWalletId = UUID.nameUUIDFromBytes((userId + ":wallet:" + wDto.getId()).getBytes(StandardCharsets.UTF_8)).toString();
                 }
@@ -64,14 +63,14 @@ public class SyncService {
                 walletIdMapping.put(wDto.getId(), targetWalletId);
 
                 String name = (wDto.getName() != null && !wDto.getName().isBlank()) ? wDto.getName() : "المحفظة الشخصية";
+                String currency = (wDto.getCurrency() != null && !wDto.getCurrency().isBlank()) ? wDto.getCurrency() : "ريال";
                 boolean isDeleted = wDto.getDeleted() != null && wDto.getDeleted();
                 LocalDateTime createdAt = wDto.getCreatedAt() != null ? wDto.getCreatedAt() : now;
 
-                walletRepository.upsertWallet(targetWalletId, name, userId, isDeleted, createdAt, now);
+                walletRepository.upsertWallet(targetWalletId, name, currency, userId, isDeleted, createdAt, now);
             }
         }
 
-        // التأكد من وجود محفظة افتراضية واحدة على الأقل للمستخدم لربط أي معاملات يتيمة بها
         String fallbackWalletId = walletIdMapping.values().stream().findFirst().orElse(null);
         if (fallbackWalletId == null) {
             List<Wallet> userWallets = walletRepository.findByUserOrderByCreatedAtAsc(user);
@@ -79,11 +78,11 @@ public class SyncService {
                 fallbackWalletId = userWallets.get(0).getId();
             } else {
                 fallbackWalletId = UUID.nameUUIDFromBytes((userId + ":default_wallet").getBytes(StandardCharsets.UTF_8)).toString();
-                walletRepository.upsertWallet(fallbackWalletId, "المحفظة الشخصية", userId, false, now, now);
+                walletRepository.upsertWallet(fallbackWalletId, "المحفظة الشخصية", "ريال", userId, false, now, now);
             }
         }
 
-        // 2. حفظ وتحديث المعاملات القادمة من الهاتف مباشرة في PostgreSQL
+        // 2. حفظ وتحديث المعاملات القادمة من الهاتف
         if (request.getTransactions() != null) {
             for (TransactionDTO tDto : request.getTransactions()) {
                 if (tDto.getId() == null || tDto.getId().isBlank()) continue;
@@ -95,7 +94,6 @@ public class SyncService {
                     targetTxId = UUID.nameUUIDFromBytes((userId + ":tx:" + tDto.getId()).getBytes(StandardCharsets.UTF_8)).toString();
                 }
 
-                // تحديد المحفظة الصحيحة التابعة للمستخدم
                 String requestedWalletId = tDto.getWalletId();
                 String resolvedWalletId = walletIdMapping.get(requestedWalletId);
 
@@ -123,12 +121,12 @@ public class SyncService {
             }
         }
 
-        // 3. جلب كافة المحافظ والمعاملات المحدثة من السيرفر وإرجاعها للهاتف
+        // 3. إرجاع كافة البيانات المحدثة إلى الهاتف (Downstream)
         List<Wallet> serverWallets = walletRepository.findWalletsForSync(userId, clientLastSync);
         List<Transaction> serverTransactions = transactionRepository.findTransactionsForSync(userId, clientLastSync);
 
         List<WalletDTO> resWallets = serverWallets.stream().map(w -> {
-            WalletDTO dto = new WalletDTO(w.getId(), w.getName(), userId);
+            WalletDTO dto = new WalletDTO(w.getId(), w.getName(), w.getCurrency(), userId);
             dto.setDeleted(w.getDeleted());
             dto.setCreatedAt(w.getCreatedAt());
             dto.setUpdatedAt(w.getUpdatedAt());

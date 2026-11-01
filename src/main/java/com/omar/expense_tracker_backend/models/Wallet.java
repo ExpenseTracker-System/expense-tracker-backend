@@ -23,6 +23,9 @@ public class Wallet {
     @Column(nullable = false)
     private String name;
 
+    @Column(nullable = true, columnDefinition = "varchar(20) default 'ريال'")
+    private String currency = "ريال";
+
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "user_id", nullable = false)
     private User user;
@@ -43,12 +46,14 @@ public class Wallet {
 
     @PrePersist
     protected void onCreate() {
+        if (this.currency == null || this.currency.isBlank()) this.currency = "ريال";
         if (this.createdAt == null) this.createdAt = LocalDateTime.now();
         if (this.updatedAt == null) this.updatedAt = LocalDateTime.now();
     }
 
     @PreUpdate
     protected void onUpdate() {
+        if (this.currency == null || this.currency.isBlank()) this.currency = "ريال";
         this.updatedAt = LocalDateTime.now();
     }
 
@@ -56,6 +61,8 @@ public class Wallet {
     public void setId(String id) { this.id = id; }
     public String getName() { return name; }
     public void setName(String name) { this.name = name; }
+    public String getCurrency() { return (currency == null || currency.isBlank()) ? "ريال" : currency; }
+    public void setCurrency(String currency) { this.currency = (currency == null || currency.isBlank()) ? "ريال" : currency; }
     public User getUser() { return user; }
     public void setUser(User user) { this.user = user; }
     public List<Transaction> getTransactions() { return transactions; }

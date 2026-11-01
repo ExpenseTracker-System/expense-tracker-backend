@@ -1,3 +1,4 @@
+// استبدل ملف controllers/WalletController.java بهذا الكود:
 package com.omar.expense_tracker_backend.controllers;
 
 import com.omar.expense_tracker_backend.dtos.WalletDTO;
@@ -45,7 +46,7 @@ public class WalletController {
         User user = userService.findByEmail(auth.getName())
                 .orElseThrow(() -> new ResourceNotFoundException("المستخدم غير موجود"));
         List<WalletDTO> wallets = walletService.getWalletsByUser(user).stream()
-                .map(w -> new WalletDTO(w.getId(), w.getName(), user.getId()))
+                .map(w -> new WalletDTO(w.getId(), w.getName(), w.getCurrency(), user.getId()))
                 .toList();
         return ResponseEntity.ok(new ApiResponse<>("تم جلب المحافظ بنجاح", wallets));
     }
@@ -59,12 +60,14 @@ public class WalletController {
         Wallet wallet = new Wallet();
         wallet.setId(walletDto.getId());
         wallet.setName(walletDto.getName());
+        wallet.setCurrency(walletDto.getCurrency());
         wallet.setUser(user);
 
         Wallet savedWallet = walletService.createWallet(wallet);
         WalletDTO responseDto = new WalletDTO(
                 savedWallet.getId(),
                 savedWallet.getName(),
+                savedWallet.getCurrency(),
                 savedWallet.getUser().getId()
         );
 
@@ -78,11 +81,15 @@ public class WalletController {
             Authentication auth) {
         Wallet wallet = getAuthorizedWallet(walletId, auth);
         wallet.setName(walletDto.getName());
+        if (walletDto.getCurrency() != null && !walletDto.getCurrency().isBlank()) {
+            wallet.setCurrency(walletDto.getCurrency());
+        }
         Wallet updatedWallet = walletService.createWallet(wallet);
 
         WalletDTO responseDto = new WalletDTO(
                 updatedWallet.getId(),
                 updatedWallet.getName(),
+                updatedWallet.getCurrency(),
                 updatedWallet.getUser().getId()
         );
         return ResponseEntity.ok(new ApiResponse<>("تم تحديث المحفظة بنجاح", responseDto));

@@ -14,6 +14,8 @@ public class WalletDTO {
     @NotBlank(message = "اسم المحفظة مطلوب")
     private String name;
 
+    private String currency = "ريال";
+
     private String userId;
 
     @JsonProperty("isDeleted")
@@ -29,12 +31,22 @@ public class WalletDTO {
         this.id = id;
         this.name = name;
         this.userId = userId;
+        this.currency = "ريال";
+    }
+
+    public WalletDTO(String id, String name, String currency, String userId) {
+        this.id = id;
+        this.name = name;
+        this.currency = (currency == null || currency.isBlank()) ? "ريال" : currency;
+        this.userId = userId;
     }
 
     public String getId() { return id; }
     public void setId(String id) { this.id = id; }
     public String getName() { return name; }
     public void setName(String name) { this.name = name; }
+    public String getCurrency() { return (currency == null || currency.isBlank()) ? "ريال" : currency; }
+    public void setCurrency(String currency) { this.currency = (currency == null || currency.isBlank()) ? "ريال" : currency; }
     public String getUserId() { return userId; }
     public void setUserId(String userId) { this.userId = userId; }
 
