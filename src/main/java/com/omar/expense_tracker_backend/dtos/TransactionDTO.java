@@ -2,35 +2,22 @@ package com.omar.expense_tracker_backend.dtos;
 
 import com.fasterxml.jackson.annotation.JsonAlias;
 import com.fasterxml.jackson.annotation.JsonProperty;
-import jakarta.validation.constraints.NotBlank;
-import jakarta.validation.constraints.NotNull;
-import jakarta.validation.constraints.Positive;
-
 import java.time.LocalDateTime;
 
 public class TransactionDTO {
     private String id;
-
-    @NotNull(message = "المبلغ مطلوب")
-    @Positive(message = "المبلغ يجب أن يكون أكبر من الصفر")
     private Double amount;
-
-    @NotBlank(message = "الفئة مطلوبة")
     private String category;
-
     private String note;
 
-    @NotNull(message = "نوع المعاملة (إيراد/مصروف) مطلوب")
     @JsonProperty("isIncome")
     @JsonAlias({"income", "isIncome"})
     private Boolean isIncome;
 
-    @NotNull(message = "تاريخ المعاملة مطلوب")
     @JsonProperty("transactionDate")
-    @JsonAlias({"transactionsDate", "transactionDate"})
+    @JsonAlias({"transactionsDate", "transactionDate", "date"})
     private LocalDateTime transactionDate;
 
-    @NotBlank(message = "معرف المحفظة مطلوب")
     private String walletId;
 
     @JsonProperty("isDeleted")

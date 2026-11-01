@@ -1,3 +1,4 @@
+// 2. ملف controllers/AuthController.java
 package com.omar.expense_tracker_backend.controllers;
 
 import com.omar.expense_tracker_backend.dtos.*;
@@ -31,13 +32,11 @@ public class AuthController {
         this.userService = userService;
     }
 
-    // 1. دالة النبض الخفيفة لإبقاء سيرفر Render مستيقظاً 24 ساعة (Keep-Alive)
     @GetMapping("/ping")
     public ResponseEntity<String> ping() {
         return ResponseEntity.ok("pong");
     }
 
-    // 2. تسجيل الدخول
     @PostMapping("/login")
     public ResponseEntity<ApiResponse<AuthResponse>> authenticate(@Valid @RequestBody LoginRequest loginRequest) {
         String email = loginRequest.getEmail().trim().toLowerCase();
@@ -51,18 +50,10 @@ public class AuthController {
         CustomUserDetails customUserDetails = new CustomUserDetails(user);
         String token = jwtUtil.generateToken(customUserDetails);
 
-        UserDTO userDTO = new UserDTO(
-                user.getId(),
-                user.getUsername(),
-                user.getEmail(),
-                user.getAuthProvider()
-        );
-        AuthResponse authResponse = new AuthResponse(token, userDTO);
-
-        return ResponseEntity.ok(new ApiResponse<>(true, "تم تسجيل الدخول بنجاح", authResponse));
+        UserDTO userDTO = new UserDTO(user.getId(), user.getUsername(), user.getEmail(), user.getAuthProvider());
+        return ResponseEntity.ok(new ApiResponse<>(true, "تم تسجيل الدخول بنجاح", new AuthResponse(token, userDTO)));
     }
 
-    // 3. إنشاء حساب جديد
     @PostMapping("/register")
     public ResponseEntity<ApiResponse<AuthResponse>> register(@Valid @RequestBody RegisterRequest request) {
         User user = new User();
@@ -72,28 +63,26 @@ public class AuthController {
         user.setAuthProvider("LOCAL");
 
         User savedUser = userService.createUser(user);
-        CustomUserDetails customUserDetails = new CustomUserDetails(savedUser);
-        String token = jwtUtil.generateToken(customUserDetails);
+        String token = jwtUtil.generateToken(new CustomUserDetails(savedUser));
 
-        UserDTO userDTO = new UserDTO(
-                savedUser.getId(),
-                savedUser.getUsername(),
-                savedUser.getEmail(),
-                savedUser.getAuthProvider()
-        );
-        AuthResponse authResponse = new AuthResponse(token, userDTO);
-
-        return ResponseEntity.ok(new ApiResponse<>(true, "تم إنشاء الحساب بنجاح", authResponse));
+        UserDTO userDTO = new UserDTO(savedUser.getId(), savedUser.getUsername(), savedUser.getEmail(), savedUser.getAuthProvider());
+        return ResponseEntity.ok(new ApiResponse<>(true, "تم إنشاء الحساب بنجاح", new AuthResponse(token, userDTO)));
     }
 
-    // 4. تسجيل الدخول عبر Google
     @PostMapping("/google")
-    public ResponseEntity<ApiResponse<AuthResponse>> googleLogin(@Valid @RequestBody GoogleLoginRequest request) {
+    @SuppressWarnings("unchecked")
+    public ResponseEntity<ApiResponse<AuthResponse>> googleLogin(@RequestBody GoogleLoginRequest request) {
         try {
             RestTemplate restTemplate = new RestTemplate();
-            String url = "https://oauth2.googleapis.com/tokeninfo?id_token=" + request.getIdToken();
-            @SuppressWarnings("unchecked")
-            Map<String, Object> googlePayload = restTemplate.getForObject(url, Map.class);
+            Map<String, Object> googlePayload = null;
+
+            if (request.getIdToken() != null && !request.getIdToken().isBlank()) {
+                String url = "https://oauth2.googleapis.com/tokeninfo?id_token=" + request.getIdToken();
+                googlePayload = restTemplate.getForObject(url, Map.class);
+            } else if (request.getAccessToken() != null && !request.getAccessToken().isBlank()) {
+                String url = "https://www.googleapis.com/oauth2/v3/userinfo?access_token=" + request.getAccessToken();
+                googlePayload = restTemplate.getForObject(url, Map.class);
+            }
 
             if (googlePayload == null || googlePayload.get("email") == null) {
                 throw new IllegalArgumentException("رمز جوجل غير صالح");
@@ -108,35 +97,29 @@ public class AuthController {
 
             return ResponseEntity.ok(new ApiResponse<>(true, "تم تسجيل الدخول عبر جوجل بنجاح", new AuthResponse(token, userDTO)));
         } catch (Exception e) {
-            throw new IllegalArgumentException("فشل التحقق من حساب جوجل، تأكد من صلاحية الرمز");
+            throw new IllegalArgumentException("فشل التحقق من حساب جوجل، تأكد من إعداد بصمة SHA-1");
         }
     }
 
-    // 5. التجديد الانزلاقي للتوكن
     @PostMapping("/refresh")
     public ResponseEntity<ApiResponse<AuthResponse>> refreshToken(Authentication authentication) {
         if (authentication == null || !authentication.isAuthenticated()) {
-            throw new BadCredentialsException("التوكن غير صالح أو منتهي الصلاحية");
+            throw new BadCredentialsException("التوكن غير صالح");
         }
-
         User user = userService.findByEmail(authentication.getName())
                 .orElseThrow(() -> new BadCredentialsException("المستخدم غير موجود"));
 
         String newToken = jwtUtil.generateToken(new CustomUserDetails(user));
         UserDTO userDTO = new UserDTO(user.getId(), user.getUsername(), user.getEmail(), user.getAuthProvider());
-        AuthResponse authResponse = new AuthResponse(newToken, userDTO);
-
-        return ResponseEntity.ok(new ApiResponse<>(true, "تم تجديد الجلسة بنجاح", authResponse));
+        return ResponseEntity.ok(new ApiResponse<>(true, "تم تجديد الجلسة بنجاح", new AuthResponse(newToken, userDTO)));
     }
 
-    // 6. طلب رمز استعادة كلمة المرور
     @PostMapping("/forgot-password")
-    public ResponseEntity<ApiResponse<Object>> forgotPassword(@RequestParam String email) {
-        userService.generatePasswordResetOtp(email);
-        return ResponseEntity.ok(new ApiResponse<>(true, "تم إرسال رمز التحقق لاستعادة كلمة المرور", null));
+    public ResponseEntity<ApiResponse<String>> forgotPassword(@RequestParam String email) {
+        String otp = userService.generatePasswordResetOtp(email);
+        return ResponseEntity.ok(new ApiResponse<>(true, "تم توليد رمز التحقق بنجاح", otp));
     }
 
-    // 7. تعيين كلمة المرور الجديدة
     @PostMapping("/reset-password")
     public ResponseEntity<ApiResponse<Object>> resetPassword(@Valid @RequestBody PasswordResetRequest request) {
         userService.resetPassword(request.getEmail(), request.getOtpCode(), request.getNewPassword());
